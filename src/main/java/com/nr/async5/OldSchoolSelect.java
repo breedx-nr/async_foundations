@@ -28,6 +28,49 @@ public class OldSchoolSelect {
             );
         var selector = Selector.open(); // make a new selector
 
+        startConnects(routes, selector);
+
+        var responses = new HashMap<Route,String>(3);
+        var responseBuffers = new HashMap<Route,ByteBuffer>();
+        routes.forEach(route -> responseBuffers.put(route, ByteBuffer.allocate(5 * 1024 * 1024)));
+
+        // Loop unless we've seen all of our responses...
+        while(responses.size() < 3) {
+            int result = selector.select(); // BLOCKS until at least 1 channel is ready for a wanted operation
+            System.out.println("There are " + result + " channels ready to operate");
+            var selectionKeys = selector.selectedKeys();
+
+            // restricted to use iterator!  YIKES.
+            Iterator<SelectionKey> iter = selectionKeys.iterator();
+            while(iter.hasNext()) {
+                var key = iter.next();
+                var channelRoute = (ChannelRoute) key.attachment();  // Nice cast!  Ouch.
+                if (key.isConnectable()) {
+                    System.out.println("Finishing connect for " + channelRoute.getHost() + channelRoute.getPath());
+                    channelRoute.channel.finishConnect(); // What a great API huh
+                } else if (key.isReadable()) {
+                    System.out.println("Reading from " + channelRoute.getHost() + channelRoute.getPath());
+                    var bb = responseBuffers.get(channelRoute.route);
+                    if (doRead(channelRoute, bb)) {
+                        byte[] buff = new byte[bb.position() + 1];
+                        bb.position(0);
+                        bb.get(buff, 0, buff.length);
+                        responses.put(channelRoute.route, new String(buff));
+                    }
+                } else if (key.isWritable() && !responses.containsKey(channelRoute.route)) {
+                    System.out.println("Writing to " + channelRoute.getHost() + channelRoute.getPath());
+                    doRequest(channelRoute);
+                }
+                iter.remove();
+            }
+            selectionKeys.clear();  // MUST do this to help reset the selector state
+        }
+        responses.forEach((route,body) -> {
+            System.out.println("Got " + body.length() + " bytes in response from " + route.getHost() + route.getPath());
+        });
+    }
+
+    private static void startConnects(List<Route> routes, Selector selector) {
         // Connect each socket via channel and register with selector
         routes.forEach(route -> {
             try {
@@ -39,52 +82,6 @@ public class OldSchoolSelect {
             } catch (IOException e) {
                 e.printStackTrace();
             }
-        });
-
-        var responses = new HashMap<Route,String>(3);
-        var responseBuffers = new HashMap<Route,ByteBuffer>();
-        routes.forEach(route -> responseBuffers.put(route, ByteBuffer.allocate(5 * 1024 * 1024)));
-
-        while(responses.size() < 3) {
-            int result = selector.select(); // BLOCKS until at least 1 channel is ready for a wanted operation
-            System.out.println("There are " + result + " channels ready to operate");
-            var selectionKeys = selector.selectedKeys();
-
-            Iterator<SelectionKey> iter = selectionKeys.iterator();
-            while(iter.hasNext()) {
-                var key = iter.next();
-                try {
-                    var channelRoute = (ChannelRoute)key.attachment();  // Nice cast!  Ouch.
-                    if(key.isConnectable()){
-                        System.out.println("Finishing connect for " + channelRoute.getHost() +  channelRoute.getPath());
-                        channelRoute.channel.finishConnect(); // What a great API huh
-                    }
-                    else if(key.isReadable()){
-                        System.out.println("Reading from " + channelRoute.getHost() + channelRoute.getPath());
-                        var bb = responseBuffers.get(channelRoute.route);
-                        if(doRead(channelRoute, bb)){
-                            byte[] buff = new byte[bb.position() + 1];
-                            bb.position(0);
-                            bb.get(buff, 0, buff.length);
-                            responses.put(channelRoute.route, new String(buff));
-                        }
-                    }
-                    else if(key.isWritable()) {
-                        System.out.println("Writing to " + channelRoute.getHost() + channelRoute.getPath());
-                        doRequest(channelRoute);
-                    }
-                } catch (Exception e) {
-                    e.printStackTrace();
-                }
-                finally {
-                    iter.remove();
-                }
-            }
-            selectionKeys.clear();  // MUST do this to help reset the selector state
-        }
-        responses.forEach((route,body) -> {
-            System.out.println("Got " + body.length() + " bytes in response from " + route.getHost() + route.getPath());
-            System.out.println(body);
         });
     }
 
