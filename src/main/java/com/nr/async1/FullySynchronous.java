@@ -6,24 +6,35 @@ import java.io.OutputStream;
 import java.net.Socket;
 
 /**
- * What does it take to do 3 requests?
+ * What does it take to do 3 requests synchronously, back to back?
  */
 public class FullySynchronous {
 
     public static void main(String[] args) throws Exception {
-        var sock = new Socket("example.com", 80);
+        var response = request("example.com", "/");
+        System.out.println(response);
+        response = request("example.com", "/foo");
+        System.out.println(response);
+        response = request("noisybox.net", "/");
+        System.out.println(response);
+    }
+
+    private static String request(String host, String path) throws Exception {
+        var sock = new Socket(host, 80);
         System.out.println(sock.isConnected());
-        var out = doRequest(sock);
+        var out = doRequest(sock, host, path);
         var response = readResponse(sock);
         out.close();
         sock.close();
-        System.out.println(response);
-
+        return response;
     }
 
-    private static OutputStream doRequest(Socket sock) throws Exception {
+    private static OutputStream doRequest(Socket sock, String host, String path) throws Exception {
         var out = sock.getOutputStream();
-        out.write("GET / HTTP/1.1\nHost: example.com\nUser-Agent: test\n\n".getBytes());
+        var requestString = "GET " + path +  " HTTP/1.1\n" +
+                "Host: " + host + "\n" +
+                "User-Agent: test\n\n";
+        out.write(requestString.getBytes());
         out.flush();
         return out;
     }
