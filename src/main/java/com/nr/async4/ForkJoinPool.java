@@ -30,13 +30,12 @@ public class ForkJoinPool {
             )
             .parallel() // fork join pool
             .map(route -> request(route.getHost(), route.getPath()))
-            .forEach(System.out::println);
+            .forEach(result -> System.out.println("Got " + result.length() + " bytes in response"));
     }
 
     private static String request(String host, String path) {
         try {
             var sock = new Socket(host, 80);
-            System.out.println(sock.isConnected());
             var out = doRequest(sock, host, path);
             var response = readResponse(sock);
             out.close();

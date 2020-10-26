@@ -49,7 +49,6 @@ public class ParallelFutures {
     private static String request(String host, String path) {
         try {
             var sock = new Socket(host, 80);
-            System.out.println(sock.isConnected());
             var out = doRequest(sock, host, path);
             var response = readResponse(sock);
             out.close();
