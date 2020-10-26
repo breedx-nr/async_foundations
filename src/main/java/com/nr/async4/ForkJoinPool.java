@@ -1,4 +1,4 @@
-package com.nr.async3;
+package com.nr.async4;
 
 import com.nr.Route;
 
@@ -16,10 +16,10 @@ import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 /**
- * Similar to the previous, but response handling happens via Future
- * and our handlers are batched.
+ * Similar to the previous, but uses the fork join pool via the jvm
+ * and some stream style.
  */
-public class ThreadedFutures {
+public class ForkJoinPool {
 
     public static void main(String[] args) throws Exception {
 
@@ -28,7 +28,7 @@ public class ThreadedFutures {
                 new Route("example.com", "/foo"),
                 new Route("noisybox.net", "/")
             )
-            .parallel()
+            .parallel() // fork join pool
             .map(route -> request(route.getHost(), route.getPath()))
             .forEach(System.out::println);
     }
