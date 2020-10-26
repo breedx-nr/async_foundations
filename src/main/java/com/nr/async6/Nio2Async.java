@@ -1,5 +1,6 @@
 package com.nr.async6;
 
+import com.nr.ChannelRoute;
 import com.nr.Route;
 
 import java.io.IOException;
@@ -7,10 +8,6 @@ import java.net.InetSocketAddress;
 import java.nio.ByteBuffer;
 import java.nio.channels.AsynchronousSocketChannel;
 import java.nio.channels.CompletionHandler;
-import java.nio.channels.SelectionKey;
-import java.nio.channels.Selector;
-import java.util.HashMap;
-import java.util.Iterator;
 import java.util.List;
 import java.util.concurrent.CountDownLatch;
 
@@ -43,7 +40,7 @@ public class Nio2Async {
                             public void completed(Integer result, ChannelRoute attachment) {
                                 System.out.println("Request to " + channelRoute.getHost() + channelRoute.getPath() + " completed, reading response");
                                 var buff = ByteBuffer.allocate(5 * 1024 * 1024);
-                                attachment.channel.read(buff, channelRoute, new CompletionHandler<>() {
+                                attachment.read(buff, channelRoute, new CompletionHandler<>() {
                                     @Override
                                     public void completed(Integer result, ChannelRoute channelRoute) {
                                         System.out.println("Response received from " + channelRoute.getHost() + channelRoute.getPath());
@@ -88,24 +85,7 @@ public class Nio2Async {
                 "Host: " + channelRoute.getHost() + "\n" +
                 "User-Agent: test\n\n";
         var bb = ByteBuffer.wrap(requestString.getBytes());
-        channelRoute.channel.write(bb, channelRoute, handler);
+        channelRoute.write(bb, channelRoute, handler);
     }
 
-    static class ChannelRoute {
-        private final AsynchronousSocketChannel channel;
-        private final Route route;
-
-        ChannelRoute(AsynchronousSocketChannel channel, Route route) {
-            this.channel = channel;
-            this.route = route;
-        }
-
-        public String getHost() {
-            return route.getHost();
-        }
-
-        public String getPath(){
-            return route.getPath();
-        }
-    }
 }
